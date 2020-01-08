@@ -140,6 +140,24 @@ Param(
     [switch]$UseSsl,
     [switch]$NoPerms)
 
+function Log {
+    param (
+        [String]$Value,
+        [Boolean]$WriteToo = $True,
+        [Boolean]$WriteError = $False
+    )
+    If ($LogPath) {
+        Add-Content -Path $Log -Value $Value
+    }
+    If ($WriteToo) {
+        if ($WriteError) { 
+            Write-Error $Value
+        } else {
+            Write-Host $Value
+        }
+    }
+}
+
 ## If logging is configured, start logging.
 If ($LogPath)
 {
@@ -154,9 +172,9 @@ If ($LogPath)
         Clear-Content -Path $Log
     }
 
-    Add-Content -Path $Log -Value "****************************************"
-    Add-Content -Path $Log -Value "$(Get-Date -Format G) Log started"
-    Add-Content -Path $Log -Value ""
+    Log -WriteToo:$False "****************************************"
+    Log -WriteToo:$False "$(Get-Date -Format G) Log started"
+    Log -WriteToo:$False ""
 }
 
 ## Set a variable for computer name of the HyperV server.
@@ -177,24 +195,13 @@ Else
 ## Check to see if there are any running VMs.
 If ($Vms.count -ne 0)
 {
-    ## For logging if enabled.
-    If ($LogPath)
-    {
-        Add-Content -Path $Log -Value "$(Get-Date -Format G) This virtual host is: $Vs"
-        Add-Content -Path $Log -Value "$(Get-Date -Format G) The following VMs will be backed up:"
+    Log "$(Get-Date -Format G) This virtual host is: $Vs"
+    Log "$(Get-Date -Format G) The following VMs will be backed up:"
 
         ForEach ($Vm in $Vms)
         {
-            Add-Content -Path $Log -Value "$Vm"
+            Log "$Vm"
         }
-    }
-
-    Write-Host "$(Get-Date -Format G) This virtual host is: $Vs"
-    Write-Host "$(Get-Date -Format G) The following VMs will be backed up:"
-
-    ForEach ($Vm in $Vms)
-    {
-        Write-Host "$Vm"
     }
 
     ## Check to see if the NoPerms switch is set.
@@ -222,76 +229,40 @@ If ($Vms.count -ne 0)
             $VmFolderTest = Test-Path "$Backup\$Vm\Virtual Machines"
             If ($VmFolderTest -eq $True)
             {
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) Successfully created backup folder $Backup\$Vm\Virtual Machines"
-                }
-
-                Write-Host "$(Get-Date -Format G) Successfully created backup folder $Backup\$Vm\Virtual Machines"
+                Log "$(Get-Date -Format G) Successfully created backup folder $Backup\$Vm\Virtual Machines"
             }
 
             Else
             {
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) ERROR: There was a problem creating folder $Backup\$Vm\Virtual Machines"
-                }
-
-                Write-Error "$(Get-Date -Format G) ERROR: There was a problem creating folder $Backup\$Vm\Virtual Machines"
+                Log -WriteError:$True "$(Get-Date -Format G) ERROR: There was a problem creating folder $Backup\$Vm\Virtual Machines"
             }
 
             $VmVHDTest = Test-Path "$Backup\$Vm\VHD"
             If ($VmVHDTest -eq $True)
             {
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) Successfully created backup folder $Backup\$Vm\VHD"
-                }
-
-                Write-Host "$(Get-Date -Format G) Successfully created backup folder $Backup\$Vm\VHD"
+                Log "$(Get-Date -Format G) Successfully created backup folder $Backup\$Vm\VHD"
             }
 
             Else
             {
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) ERROR: There was a problem creating folder $Backup\$Vm\VHD"
-                }
-
-                Write-Error "$(Get-Date -Format G) ERROR: There was a problem creating folder $Backup\$Vm\VHD"                
+                Log -WriteError:$True "$(Get-Date -Format G) ERROR: There was a problem creating folder $Backup\$Vm\VHD"
             }
             
             $VmSnapTest = Test-Path "$Backup\$Vm\Snapshots"
             If ($VmSnapTest -eq $True)
             {
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) Successfully created backup folder $Backup\$Vm\Snapshots"
-                }
-
-                Write-Host "$(Get-Date -Format G) Successfully created backup folder $Backup\$Vm\Snapshots"
+                Log "$(Get-Date -Format G) Successfully created backup folder $Backup\$Vm\Snapshots"
             }
 
             Else
             {
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) ERROR: There was a problem creating folder $Backup\$Vm\Snapshots"
-                }
-
-                Write-Error "$(Get-Date -Format G) ERROR: There was a problem creating folder $Backup\$Vm\Snapshots"
+                Log -WriteError:$True "$(Get-Date -Format G) ERROR: There was a problem creating folder $Backup\$Vm\Snapshots"
             }
 
             ## Stop the VM.
             Stop-VM $Vm
 
-            ## For logging.
-            If ($LogPath)
-            {
-                Add-Content -Path $Log -Value "$(Get-Date -Format G) Stopping VM: $Vm"
-            }
-
-            Write-Host "$(Get-Date -Format G) Stopping VM: $Vm"
+            Log "$(Get-Date -Format G) Stopping VM: $Vm"
 
             ## Wait for 5 seconds before continuing just to be safe.
             Start-Sleep -S 5
@@ -303,22 +274,12 @@ If ($Vms.count -ne 0)
             $VmConfigTest = Test-Path "$Backup\$Vm\Virtual Machines\*"
             If ($VmConfigTest -eq $True)
             {
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) Successfully copied $Vm configuration to $Backup\$Vm\Virtual Machines"
-                }
-
-                Write-Host "$(Get-Date -Format G) Successfully copied $Vm configuration to $Backup\$Vm\Virtual Machines"
+                Log "$(Get-Date -Format G) Successfully copied $Vm configuration to $Backup\$Vm\Virtual Machines"
             }
 
             Else
             {
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) ERROR: There was a problem copying the configuration for $Vm"
-                }
-                
-                Write-Error "$(Get-Date -Format G) ERROR: There was a problem copying the configuration for $Vm"
+                Log -WriteError:$True "$(Get-Date -Format G) ERROR: There was a problem copying the configuration for $Vm"
             }
 
             ## Copy the VHD(s).
@@ -327,22 +288,12 @@ If ($Vms.count -ne 0)
             $VmVHDCopyTest = Test-Path "$Backup\$Vm\VHD\*"
             If ($VmVHDCopyTest -eq $True)
             {
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) Successfully copied $Vm VHDs to $Backup\$Vm\VHD"
-                }
-
-                Write-Host "$(Get-Date -Format G) Successfully copied $Vm VHDs to $Backup\$Vm\VHD"
+                Log "$(Get-Date -Format G) Successfully copied $Vm VHDs to $Backup\$Vm\VHD"
             }
 
             Else
             {
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) ERROR: There was a problem copying the VHDs for $Vm"
-                }
-                
-                Write-Error "$(Get-Date -Format G) ERROR: There was a problem copying the VHDs for $Vm"
+                Log -WriteError:$True "$(Get-Date -Format G) ERROR: There was a problem copying the VHDs for $Vm"
             }
 
             ## Get the VM snapshots/checkpoints.
@@ -358,46 +309,24 @@ If ($Vms.count -ne 0)
                 $VmSnapCopyTest = Test-Path "$Backup\$Vm\Snapshots\*"
                 If ($VmSnapCopyTest -eq $True)
                 {
-                    If ($LogPath)
-                    {
-                        Add-Content -Path $Log -Value "$(Get-Date -Format G) Successfully copied checkpoint configuration for $Backup\$Vm\Snapshots"
-                    }
-                        
-                    Write-Host "$(Get-Date -Format G) Successfully copied checkpoint configuration for $Backup\$Vm\Snapshots"
+                    Log "$(Get-Date -Format G) Successfully copied checkpoint configuration for $Backup\$Vm\Snapshots"
                 }
 
                 Else
                 {
-                    If ($LogPath)
-                    {
-                        Add-Content -Path $Log -Value "$(Get-Date -Format G) ERROR: There was a problem copying the checkpoint configuration for $Vm"
-                    }
-                    
-                    Write-Error "$(Get-Date -Format G) ERROR: There was a problem copying the checkpoint configuration for $Vm"
+                    Log -WriteError:$True "$(Get-Date -Format G) ERROR: There was a problem copying the checkpoint configuration for $Vm"
                 }
 
                 ## Copy the snapshot root VHD.
                 Copy-Item $Snap.HardDrives.Path -Destination "$Backup\$Vm\VHD\" -Recurse -Force
 
-                ## For logging.
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) Successfully copied checkpoint VHDs for $Vm to $Backup\$Vm\VHD"
-                }
-
-                Write-Host "$(Get-Date -Format G) Successfully copied checkpoint VHDs for $Vm to $Backup\$Vm\VHD"
+                Log "$(Get-Date -Format G) Successfully copied checkpoint VHDs for $Vm to $Backup\$Vm\VHD"
             }
 
             ## Start the VM.
             Start-VM $Vm
 
-            ## For logging.
-            If ($LogPath)
-            {
-                Add-Content -Path $Log -Value "$(Get-Date -Format G) Starting VM: $Vm"
-            }
-
-            Write-Host "$(Get-Date -Format G) Starting VM: $Vm"
+            Log "$(Get-Date -Format G) Starting VM: $Vm"
 
             ## Wait for 30 seconds before continuing just to be safe.
             Start-Sleep -S 30
@@ -411,13 +340,7 @@ If ($Vms.count -ne 0)
                     ## Remove all previous backup folders.
                     Get-ChildItem -Path $Backup -Filter "$Vm-*-*-*-*-*-*" -Directory | Remove-Item -Recurse -Force
 
-                    ## For logging.
-                    If ($LogPath)
-                    {
-                        Add-Content -Path $Log -Value "$(Get-Date -Format G) Removing previous backup folders."
-                    }
-
-                    Write-Host "$(Get-Date -Format G) Removing previous backup folders."
+                    Log "$(Get-Date -Format G) Removing previous backup folders."
                 }
             }
 
@@ -430,13 +353,7 @@ If ($Vms.count -ne 0)
                     ## Remove all previous backup folders that are older than the configured number of days.
                     Get-ChildItem -Path $Backup -Filter "$Vm-*-*-*-*-*-*" -Directory | Where-Object CreationTime –lt (Get-Date).AddDays(-$History) | Remove-Item -Recurse -Force
 
-                    ## For logging.
-                    If ($LogPath)
-                    {
-                        Add-Content -Path $Log -Value "$(Get-Date -Format G) Removing backup folders older than: $History days"
-                    }
-
-                    Write-Host "$(Get-Date -Format G) Removing backup folders older than: $History days"
+                    Log "$(Get-Date -Format G) Removing backup folders older than: $History days"
                 }
             }
 
@@ -449,13 +366,7 @@ If ($Vms.count -ne 0)
                     ## Remove all previous compressed backups.
                     Remove-Item "$Backup\$Vm-*-*-*-*-*-*.zip" -Force
 
-                    ## For logging.
-                    If ($LogPath)
-                    {
-                        Add-Content -Path $Log -Value "$(Get-Date -Format G) Removing previous compressed backups."
-                    }
-
-                    Write-Host "$(Get-Date -Format G) Removing previous compressed backups."
+                    Log "$(Get-Date -Format G) Removing previous compressed backups."
                 }
 
                 ## If the keep command line switch is configured.
@@ -464,13 +375,7 @@ If ($Vms.count -ne 0)
                     ## Remove previous compressed backups that are older than the configured number of days.
                     Get-ChildItem -Path "$Backup\$Vm-*-*-*-*-*-*.zip" | Where-Object CreationTime –lt (Get-Date).AddDays(-$History) | Remove-Item -Force
 
-                    ## For logging.
-                    If ($LogPath)
-                    {
-                        Add-Content -Path $Log -Value "$(Get-Date -Format G) Removing compressed backups older than: $History days"
-                    }
-
-                    Write-Host "$(Get-Date -Format G) Removing compressed backups older than: $History days"
+                    Log "$(Get-Date -Format G) Removing compressed backups older than: $History days"
                 }
 
                 ## Compress the VM backup folder into a zip, and delete the VM export folder.
@@ -478,13 +383,7 @@ If ($Vms.count -ne 0)
                 [io.compression.zipfile]::CreateFromDirectory("$Backup\$Vm", "$Backup\$Vm-{0:yyyy-MM-dd-HH-mm-ss}.zip" -f (Get-Date))
                 Get-ChildItem -Path $Backup -Filter "$Vm" -Directory | Remove-Item -Recurse -Force
 
-                ## For logging.
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) Successfully created compressed backup of $Vm"
-                }
-
-                Write-Host "$(Get-Date -Format G) Successfully created compressed backup of $Vm"
+                Log "$(Get-Date -Format G) Successfully created compressed backup of $Vm"
             }
         
             ## If the compress command line switch is not configured.
@@ -518,22 +417,12 @@ If ($Vms.count -ne 0)
         $VmExportTest = Test-Path "$Backup\*"
         If ($VmExportTest -eq $True)
         {
-            If ($LogPath)
-            {
-                Add-Content -Path $Log -Value "$(Get-Date -Format G) Successfully exported specified VMs to $Backup"
-            }
-
-            Write-Host "$(Get-Date -Format G) Successfully exported specified VMs to $Backup"
+            Log "$(Get-Date -Format G) Successfully exported specified VMs to $Backup"
         }
 
         Else
         {
-            If ($LogPath)
-            {
-                Add-Content -Path $Log -Value "$(Get-Date -Format G) ERROR: There was a problem exporting the specified VMs to $Backup"
-            }
-
-            Write-Error "$(Get-Date -Format G) ERROR: There was a problem exporting the specified VMs to $Backup"
+            Log -WriteError:$True "$(Get-Date -Format G) ERROR: There was a problem exporting the specified VMs to $Backup"
         }
 
         ## Loop through the VMs do perform operations for the keep and compress options, if configured.
@@ -548,13 +437,7 @@ If ($Vms.count -ne 0)
                     ## Remove all previous backup folders.
                     Get-ChildItem -Path $Backup -Filter "$Vm-*-*-*-*-*-*" -Directory | Remove-Item -Recurse -Force
 
-                    ## For logging.
-                    If ($LogPath)
-                    {
-                        Add-Content -Path $Log -Value "$(Get-Date -Format G) Removing previous backup folders"
-                    }
-
-                    Write-Host "$(Get-Date -Format G) Removing previous backup folders"
+                    Log "$(Get-Date -Format G) Removing previous backup folders"
                 }
             }
 
@@ -567,13 +450,7 @@ If ($Vms.count -ne 0)
                     ## Remove previous backup folders older than the configured number of days.
                     Get-ChildItem -Path $Backup -Filter "$Vm-*-*-*-*-*-*" -Directory | Where-Object CreationTime –lt (Get-Date).AddDays(-$History) | Remove-Item -Recurse -Force
 
-                    ## For logging.
-                    If ($LogPath)
-                    {
-                        Add-Content -Path $Log -Value "$(Get-Date -Format G) Removing backup folders older than: $History days"
-                    }
-
-                    Write-Host "$(Get-Date -Format G) Removing backup folders older than: $History days"
+                    Log "$(Get-Date -Format G) Removing backup folders older than: $History days"
                 }
             }
 
@@ -586,13 +463,7 @@ If ($Vms.count -ne 0)
                     ## Remove all previous compressed backups.
                     Remove-Item "$Backup\$Vm-*-*-*-*-*-*.zip" -Force
 
-                    ## For logging.
-                    If ($LogPath)
-                    {
-                        Add-Content -Path $Log -Value "$(Get-Date -Format G) Removing previous compressed backups"
-                    }
-
-                    Write-Host "$(Get-Date -Format G) Removing previous compressed backups"
+                    Log "$(Get-Date -Format G) Removing previous compressed backups"
                 }
 
                 ## If the keep option is configured.
@@ -601,13 +472,7 @@ If ($Vms.count -ne 0)
                     ## Remove previous compressed backups older than the configured number of days.
                     Get-ChildItem -Path "$Backup\$Vm-*-*-*-*-*-*.zip" | Where-Object CreationTime –lt (Get-Date).AddDays(-$History) | Remove-Item -Force
 
-                    ## For logging.
-                    If ($LogPath)
-                    {
-                        Add-Content -Path $Log -Value "$(Get-Date -Format G) Removing compressed backups older than: $History days"
-                    }
-
-                    Write-Host "$(Get-Date -Format G) Removing compressed backups older than: $History days"
+                    Log "$(Get-Date -Format G) Removing compressed backups older than: $History days"
                 }
 
                 ## Compress the VM export folder into a zip, and delete the VM export folder.
@@ -615,13 +480,7 @@ If ($Vms.count -ne 0)
                 [io.compression.zipfile]::CreateFromDirectory("$Backup\$Vm", "$Backup\$Vm-{0:yyyy-MM-dd-HH-mm-ss}.zip" -f (Get-Date))
                 Get-ChildItem -Path $Backup -Filter "$Vm" -Directory | Remove-Item -Recurse -Force
 
-                ## For logging.
-                If ($LogPath)
-                {
-                    Add-Content -Path $Log -Value "$(Get-Date -Format G) Successfully created compressed backup of $Vm"
-                }
-
-                Write-Host -Path $Log -Value "$(Get-Date -Format G) Successfully created compressed backup of $Vm"
+                Log "$(Get-Date -Format G) Successfully created compressed backup of $Vm"
             }
         
             ## If the compress option is not enabled.
@@ -637,21 +496,15 @@ If ($Vms.count -ne 0)
 ## If there are no VMs, then do nothing.
 Else
 {
-    ## For Logging.
-    If ($LogPath)
-    {
-        Add-Content -Path $Log -Value "$(Get-Date -Format G) There are no VMs running to backup"
-    }
-
-    Write-Host "$(Get-Date -Format G) There are no VMs running to backup"
+    Log "$(Get-Date -Format G) There are no VMs running to backup"
 }
 
 ## If log was configured stop the log.
 If ($LogPath)
 {
-    Add-Content -Path $Log -Value ""
-    Add-Content -Path $Log -Value "$(Get-Date -Format G) Log finished"
-    Add-Content -Path $Log -Value "****************************************"
+    Log -WriteToo:$False ""
+    Log -WriteToo:$False "$(Get-Date -Format G) Log finished"
+    Log -WriteToo:$False "****************************************"
 
     ## If email was configured, set the variables for the email subject and body.
     If ($SmtpServer)
