@@ -84,6 +84,12 @@ Instructs the script to shutdown the running VM(s) to do the file-copy based bac
 Instructs the script to keep a specified number of days worth of backups. The script will delete VM backups older than the number of days specified.
 
 ``` txt
+-DeleteFirst
+```
+
+Instructs the script to delete old backups before creating a new backup.
+
+``` txt
 -Compress
 ```
 
