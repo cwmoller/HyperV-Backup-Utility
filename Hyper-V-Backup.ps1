@@ -49,6 +49,8 @@
     The -Keep switch should be used to keep the specified number of days worth of backups. For example, to keep one months worth of backups
     use -Keep 30.
 
+    The -DeleteFirst switch should be used to remove old backups before creating the new backup.
+
     The -Compress switch should be used to generate a zip file of each VM that is backed up. The original backup folder will be deleted afterwards.
 
     Important note: This script should be run on a Hyper-V host. The Hyper-V PowerShell management modules should be installed.
@@ -78,6 +80,9 @@
 
     .PARAMETER Keep
     Instructs the script to keep a specified number of days worth of backups. The script will delete VM backups older than the number of days specified.
+
+    .PARAMETER DeleteFirst
+    Instructs the script to delete old backups before creating a new backup.
 
     .PARAMETER Compress
     This option will create a .zip file of each Hyper-V VM backup. Available disk space should be considered when using this option.
@@ -117,6 +122,7 @@ Param(
     $Backup,
     [alias("Keep")]
     $History,
+    [Boolean]$DeleteFirst = $False,
     [alias("List")]
     [ValidateScript({Test-Path -Path $_ -PathType Leaf})]
     $VmList,
@@ -155,6 +161,64 @@ function Log {
         } else {
             Write-Host $Value
         }
+    }
+}
+
+function Remove-OldBackups {
+    [CmdletBinding()]
+    param(
+        [String]$Vm
+    )
+
+    ## Check to see if the keep command line switch is not configured.
+    If ($Null -eq $History)
+    {
+        ## Check to see if the compress command line switch is not configured.
+        If ($Compress -eq $False)
+        {
+            ## Remove all previous backup folders.
+            Get-ChildItem -Path $Backup -Filter "$Vm-*-*-*-*-*-*" -Directory | Remove-Item -Recurse -Force
+
+            Log "$(Get-Date -Format G) Removing previous backup folders."
+        }
+    }
+
+    ## If the keep command line switch is configured...
+    Else
+    {
+        ## ...and if the compress command line switch is not configured.
+        If ($Compress -eq $False)
+        {
+            ## Remove all previous backup folders that are older than the configured number of days.
+            Get-ChildItem -Path $Backup -Filter "$Vm-*-*-*-*-*-*" -Directory | Where-Object CreationTime –lt (Get-Date).AddDays(-$History) | Remove-Item -Recurse -Force
+
+            Log "$(Get-Date -Format G) Removing backup folders older than: $History days"
+        }
+    }
+}
+
+function Remove-OldCompressedBackups {
+    [CmdletBinding()]
+    param(
+        [String]$Vm
+    )
+
+    ## ...and if the keep command line switch is not configured.
+    If ($Null -eq $History)
+    {
+        ## Remove all previous compressed backups.
+        Remove-Item "$Backup\$Vm-*-*-*-*-*-*.zip" -Force
+
+        Log "$(Get-Date -Format G) Removing previous compressed backups."
+    }
+
+    ## If the keep command line switch is configured.
+    Else
+    {
+        ## Remove previous compressed backups that are older than the configured number of days.
+        Get-ChildItem -Path "$Backup\$Vm-*-*-*-*-*-*.zip" | Where-Object CreationTime –lt (Get-Date).AddDays(-$History) | Remove-Item -Force
+
+        Log "$(Get-Date -Format G) Removing compressed backups older than: $History days"
     }
 }
 
@@ -198,9 +262,14 @@ If ($Vms.count -ne 0)
     Log "$(Get-Date -Format G) This virtual host is: $Vs"
     Log "$(Get-Date -Format G) The following VMs will be backed up:"
 
-        ForEach ($Vm in $Vms)
-        {
-            Log "$Vm"
+    ForEach ($Vm in $Vms)
+    {
+        Log "$Vm"
+        if ($DeleteFirst) {
+            Remove-OldBackups "$Vm"
+            if ($Compress) {
+                Remove-OldCompressedBackups "$Vm"
+            }
         }
     }
 
@@ -331,52 +400,12 @@ If ($Vms.count -ne 0)
             ## Wait for 30 seconds before continuing just to be safe.
             Start-Sleep -S 30
 
-            ## Check to see if the keep command line switch is not configured.
-            If ($Null -eq $History)
-            {
-                ## Check to see if the compress command line switch is not configured.
-                If ($Compress -eq $False)
-                {
-                    ## Remove all previous backup folders.
-                    Get-ChildItem -Path $Backup -Filter "$Vm-*-*-*-*-*-*" -Directory | Remove-Item -Recurse -Force
-
-                    Log "$(Get-Date -Format G) Removing previous backup folders."
-                }
-            }
-
-            ## If the keep command line switch is configured...
-            Else
-            {
-                ## ...and if the compress command line switch is not configured.
-                If ($Compress -eq $False)
-                {
-                    ## Remove all previous backup folders that are older than the configured number of days.
-                    Get-ChildItem -Path $Backup -Filter "$Vm-*-*-*-*-*-*" -Directory | Where-Object CreationTime –lt (Get-Date).AddDays(-$History) | Remove-Item -Recurse -Force
-
-                    Log "$(Get-Date -Format G) Removing backup folders older than: $History days"
-                }
-            }
+            Remove-OldBackups $Vm
 
             ## Check to see if the compress command line switch is configured...
             If ($Compress)
             {
-                ## ...and if the keep command line switch is not configured.
-                If ($Null -eq $History)
-                {
-                    ## Remove all previous compressed backups.
-                    Remove-Item "$Backup\$Vm-*-*-*-*-*-*.zip" -Force
-
-                    Log "$(Get-Date -Format G) Removing previous compressed backups."
-                }
-
-                ## If the keep command line switch is configured.
-                Else
-                {
-                    ## Remove previous compressed backups that are older than the configured number of days.
-                    Get-ChildItem -Path "$Backup\$Vm-*-*-*-*-*-*.zip" | Where-Object CreationTime –lt (Get-Date).AddDays(-$History) | Remove-Item -Force
-
-                    Log "$(Get-Date -Format G) Removing compressed backups older than: $History days"
-                }
+                Remove-OldCompressedBackups $Vm
 
                 ## Compress the VM backup folder into a zip, and delete the VM export folder.
                 Add-Type -AssemblyName "system.io.compression.filesystem"
@@ -385,7 +414,7 @@ If ($Vms.count -ne 0)
 
                 Log "$(Get-Date -Format G) Successfully created compressed backup of $Vm"
             }
-        
+
             ## If the compress command line switch is not configured.
             Else
             {
@@ -428,52 +457,12 @@ If ($Vms.count -ne 0)
         ## Loop through the VMs do perform operations for the keep and compress options, if configured.
         ForEach ($Vm in $Vms)
         {
-            ## Check to see iif the keep option is not configured...
-            If ($Null -eq $History)
-            {
-                ## ...and if the compress option is not configured.
-                If ($Compress -eq $False)
-                {
-                    ## Remove all previous backup folders.
-                    Get-ChildItem -Path $Backup -Filter "$Vm-*-*-*-*-*-*" -Directory | Remove-Item -Recurse -Force
-
-                    Log "$(Get-Date -Format G) Removing previous backup folders"
-                }
-            }
-
-            ## If the keep option is configured...
-            Else
-            {
-                ## ...and if the compress option is not configured.
-                If ($Compress -eq $False)
-                {
-                    ## Remove previous backup folders older than the configured number of days.
-                    Get-ChildItem -Path $Backup -Filter "$Vm-*-*-*-*-*-*" -Directory | Where-Object CreationTime –lt (Get-Date).AddDays(-$History) | Remove-Item -Recurse -Force
-
-                    Log "$(Get-Date -Format G) Removing backup folders older than: $History days"
-                }
-            }
+            Remove-OldBackups $Vm
 
             ## Check to see if the compress option is enabled...
             If ($Compress)
             {
-                ## ...and if the keep option is not configured.
-                If ($Null -eq $History)
-                {
-                    ## Remove all previous compressed backups.
-                    Remove-Item "$Backup\$Vm-*-*-*-*-*-*.zip" -Force
-
-                    Log "$(Get-Date -Format G) Removing previous compressed backups"
-                }
-
-                ## If the keep option is configured.
-                Else
-                {
-                    ## Remove previous compressed backups older than the configured number of days.
-                    Get-ChildItem -Path "$Backup\$Vm-*-*-*-*-*-*.zip" | Where-Object CreationTime –lt (Get-Date).AddDays(-$History) | Remove-Item -Force
-
-                    Log "$(Get-Date -Format G) Removing compressed backups older than: $History days"
-                }
+                Remove-OldCompressedBackups $Vm
 
                 ## Compress the VM export folder into a zip, and delete the VM export folder.
                 Add-Type -AssemblyName "system.io.compression.filesystem"
